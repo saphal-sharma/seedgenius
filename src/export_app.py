@@ -37,7 +37,29 @@ def main():
         w = E[(E["location_code"] == loc) & (E["year"] >= 2004)][wcols].median()
         base[loc] = {k: round(float(v), 4) for k, v in w.items()}
 
+    # history of every season at each active site: the scenarios for the probability simulation
+    hist = {loc: E[E["location_code"] == loc].sort_values("year")[wcols].round(3).values.tolist()
+            for loc in active}
+    hist_years = {loc: E[E["location_code"] == loc].sort_values("year")["year"].tolist() for loc in active}
+
+    # noise for the simulation: genotype x environment residual SD (degrees-of-freedom corrected)
+    res = (df["yield_t_ha"] - df["variety_code"].map(veff) - df["env"].map(eeff)
+           - df["variety_code"].map(slopes) * (df["env"].map(eeff) - eeff.mean()))
+    resid_sd = float(res.std() * np.sqrt(len(df) / (len(df) - len(veff) - len(eeff))))
+    # season-level error of the weather model on unseen years (leave-one-year-out)
+    errs = []
+    for yr in sorted(df["year"].unique()):
+        tr, te = df[df["year"] != yr], df[df["year"] == yr].drop_duplicates("env")
+        v_, e_ = two_way(tr)
+        m_ = SeasonModel().fit(tr, e_, wcols, locations)
+        errs += list(eeff.reindex(te["env"]).to_numpy() - m_.predict(te))
+    season_rmse = float(np.sqrt(np.mean(np.square(errs))))
+    print(f"resid_sd {resid_sd:.3f}  season_rmse {season_rmse:.3f}")
+
     coef = sm.coefficients()
+    temp = [k for k in wcols if k.split("_")[0] in ("Tabs", "Tmin", "Tmax")]
+    print("effect of +1 C on all Mar-Jul temperatures:", round(sum(coef[k] / sm.sd[k] for k in temp), 3), "t/ha")
+    tr_rng = {k: [round(float(E[k].min()), 2), round(float(E[k].max()), 2)] for k in temp}
     dry = {}
     for m in ["May", "Jun", "Jul"]:
         b = np.polyfit(E[f"PrecipSum_{m}"], E[f"DryDays_{m}"], 1)
@@ -54,6 +76,10 @@ def main():
         "coef": {k: round(float(v), 6) for k, v in coef.items()},
         "intercept": round(float(sm.m.intercept_), 6), "mean_quality": round(sm.mean_quality, 6),
         "dry": dry, "varieties": varieties,
+        "hist": hist, "hist_years": hist_years, "resid_sd": round(resid_sd, 4), "season_rmse": round(season_rmse, 4),
+        "temp_cols": temp, "temp_range": tr_rng,
+        "calibration": pd.read_csv(ROOT / "results" / "win_probability_calibration.csv")
+        .iloc[:, 1:].round(3).values.tolist(),
         "metrics": metrics[["model", "picks_best_variety_pct", "yield_lost_vs_best_t_ha", "random_pick_pct"]]
         .round(3).to_dict("records"),
         "season": {"r2": round(float(season["r2_trial_mean_yield"]), 3), "mae": round(float(season["mae_t_ha"]), 2)},

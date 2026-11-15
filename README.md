@@ -52,11 +52,35 @@ Source: Levy Häner L., Strebel S., Visse-Mansiaux M., Wuyts N., Herrera J.M., P
 
 The JavaScript reproduces the Python predictions exactly (checked on trial L1 2023: 6.6896 t/ha in both).
 
+## What if the summer is hotter? Probability testing
+
+The app's second section tests about 2,000 possible seasons instead of one guess. It replays every past season at the chosen site (1990–2023), shifts all March–July temperatures by the chosen warming (0 to +3 °C) and June rainfall by a chosen factor, and adds the random variation observed in the trials:
+
+- **Season variation** the weather model cannot explain (error on unseen seasons: 0.95 t/ha).
+- **Variety-by-season variation** (residual SD 0.50 t/ha), plus estimation error for varieties tested in few trials.
+
+For each variety it reports the chance of being the best, the expected yield, a bad year (10th percentile), a good year (90th percentile) and the chance of falling below a chosen minimum yield. It names the most likely winner and, when different, the safest variety (highest bad-year yield).
+
+**Are the chances honest?** [`src/calibration.py`](src/calibration.py) tests them on seasons the model had not seen:
+
+| Predicted chance of winning | Actual win rate | Cases |
+|---|---|---|
+| 1% | 1% | 2,517 |
+| 7% | 7% | 474 |
+| 15% | 13% | 368 |
+| 24% | 23% | 153 |
+| 39% | 42% | 142 |
+| 60% | 72% | 104 |
+| 84% | 74% | 23 |
+
+In the model, +1 °C across March–July lowers the season yield level by about 0.3 t/ha (mainly through warmer June and July nights). Rankings hardly change with warming, because the varieties respond similarly to season quality. The model is linear and learned from 1990–2023, so it cannot capture sudden heat-stress damage beyond that range; the app warns when the warming goes far outside it.
+
 ## Run it
 
 ```bash
 pip install -r requirements.txt
 python src/seedgenius_eu.py   # analysis, tables and charts in results/
+python src/calibration.py     # checks the win probabilities
 python src/export_app.py      # rebuilds docs/index.html
 ```
 

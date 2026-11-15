@@ -67,6 +67,23 @@ th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spa
 tr.best td { font-weight: 600; }
 .stack { display: grid; gap: 20px; }
 p.small { font-size: 14px; color: var(--muted); margin: 8px 0 0; max-width: 70ch; }
+.prob-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px 22px; margin: 6px 0 14px; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.stat { background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+.stat .k { font-size: 12.5px; color: var(--muted); }
+.stat .v { font-family: var(--font-mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+.reason { background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+.reason p { margin: 4px 0; }
+.warn { border-left: 3px solid var(--heat); padding: 6px 10px; margin-bottom: 12px; font-size: 14px; }
+.ptable td.vn { font-weight: 600; }
+.chance { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.chance .b { height: 10px; background: var(--accent); border-radius: 2px; }
+.rangecell { width: 34%; }
+.range { position: relative; height: 14px; }
+.range .ln { position: absolute; top: 6px; height: 2px; background: var(--muted); }
+.range .dot { position: absolute; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); margin-left: -5px; }
+.range .thr { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--heat); }
+.tablewrap { overflow-x: auto; }
 footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
 @media (prefers-reduced-motion: no-preference) { .row .fill { transition: width .25s ease; } }
 </style>
@@ -117,6 +134,24 @@ footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
     </section>
   </aside>
 </div>
+
+<section class="panel" style="margin-top:20px" aria-labelledby="probh">
+  <h2 id="probh">What if the summer is hotter? Testing many possible seasons</h2>
+  <p class="small" style="margin:0 0 12px">Instead of one guess, the app replays every past season at the chosen site (1990–2023), shifted by the warming you set, and adds the random variation seen in the trials. That gives about 2,000 possible seasons. For each variety it reports its chance of being the best, its expected yield and its range from a bad year to a good year.</p>
+  <div class="prob-controls">
+    <div><label for="warm">Warming, March–July</label><div class="val heat"><span id="warmV"></span> °C</div><input class="r-heat" type="range" id="warm" min="0" max="3" step="0.5" value="1"></div>
+    <div><label for="prain">June rainfall</label><div class="val rain"><span id="prainV"></span>% of each past June</div><input class="r-rain" type="range" id="prain" min="60" max="140" step="10" value="100"></div>
+    <div><label for="thr">Minimum acceptable yield</label><div class="val"><span id="thrV"></span> t/ha</div><input type="range" id="thr" min="5" max="8" step="0.25" value="6"></div>
+  </div>
+  <div id="pwarn"></div>
+  <div class="summary" id="psum"></div>
+  <div class="reason" id="preason"></div>
+  <div class="tablewrap"><table class="ptable" id="ptable"></table></div>
+  <p class="small">Bad year = the worst 10% of simulated seasons; good year = the best 10%. Dot = expected yield; the dashed red line is your minimum acceptable yield.</p>
+  <h2 style="margin-top:18px">Can these chances be trusted?</h2>
+  <table id="calib" style="max-width:520px"></table>
+  <p class="small">Tested on 34 seasons the model had not seen: when it gave a variety a certain chance of winning a trial, the variety won about that often. Above 70% it is slightly overconfident (based on only 23 cases). The warming itself is an assumption, and the weather model is linear, so it cannot capture sudden heat-stress damage above the temperatures seen in 1990–2023.</p>
+</section>
 
 <footer>Data: Levy Häner L., Strebel S., Visse-Mansiaux M., Wuyts N., Herrera J.M., Pellet D. (2025). Winter wheat performance data for varieties grown under low input conditions in Switzerland over the period 1990–2023. Agroscope, Zenodo, doi:10.5281/zenodo.16420898 (CC BY 4.0). Analysis and app by Saphal Sharma. A method demonstration, not official variety advice.</footer>
 </div>
@@ -212,6 +247,69 @@ $("seasonfit").textContent = `Ridge regression on 42 seasonal weather variables,
 $("loc").addEventListener("change", update);
 document.querySelectorAll("[data-p]").forEach(b => b.addEventListener("click", () => preset(b.dataset.p)));
 update();
+
+// ---------- Probability simulation ----------
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); const i = (s.length - 1) * p, lo = Math.floor(i);
+  return s[lo] + (s[Math.ceil(i)] - s[lo]) * (i - lo); };
+const DRAWS = 60;
+
+function simulate() {
+  const loc = $("loc").value, dT = +$("warm").value, rf = +$("prain").value / 100, thr = +$("thr").value;
+  $("warmV").textContent = "+" + dT.toFixed(1); $("prainV").textContent = $("prain").value; $("thrV").textContent = thr.toFixed(2);
+  const r = rng(12345), V = D.varieties, n = V.length;
+  const ys = V.map(() => []), wins = new Array(n).fill(0), below = new Array(n).fill(0), seasons = [];
+  let outside = 0, tot = 0;
+  for (const row of D.hist[loc]) {
+    const w = {}; D.wcols.forEach((k, i) => w[k] = row[i]);
+    D.temp_cols.forEach(k => { w[k] += dT; tot++; if (w[k] > D.temp_range[k][1]) outside++; });
+    const p0 = w.PrecipSum_Jun, p = p0 * rf;
+    w.PrecipSum_Jun = p; w.Precipmean_wet_Jun *= Math.sqrt(rf);
+    w.DryDays_Jun = Math.max(0, Math.min(30, w.DryDays_Jun + D.dry.Jun[0] * (p - p0)));
+    const qhat = seasonQuality(w);
+    for (let d = 0; d < DRAWS; d++) {
+      const q = qhat + D.season_rmse * gauss(r); seasons.push(q);
+      let best = -1, bi = 0;
+      for (let j = 0; j < n; j++) {
+        const v = V[j], se = D.resid_sd / Math.sqrt(v.trials);
+        const y = q + v.effect + v.slope * (q - D.mean_quality) + Math.sqrt(D.resid_sd ** 2 + se ** 2) * gauss(r);
+        ys[j].push(y); if (y < thr) below[j]++; if (y > best) { best = y; bi = j; }
+      }
+      wins[bi]++;
+    }
+  }
+  const N = seasons.length;
+  const res = V.map((v, j) => ({ code: v.code, trials: v.trials, pbest: wins[j] / N, mean: ys[j].reduce((a, b) => a + b, 0) / N,
+    p10: pct(ys[j], .1), p90: pct(ys[j], .9), pbelow: below[j] / N })).sort((a, b) => b.pbest - a.pbest || b.mean - a.mean);
+  const robust = [...res].sort((a, b) => b.p10 - a.p10)[0];
+  const top = res[0];
+  const yrs = D.hist_years[loc];
+  $("psum").innerHTML = `<div class="stat"><div class="k">Simulated seasons</div><div class="v">${N.toLocaleString("en")}</div><div class="hint">${yrs.length} past seasons (${yrs[0]}–${yrs[yrs.length - 1]}) × ${DRAWS} draws</div></div>
+    <div class="stat"><div class="k">Expected season yield level</div><div class="v">${fmt(seasons.reduce((a, b) => a + b, 0) / N)} t/ha</div></div>
+    <div class="stat"><div class="k">Bad year to good year</div><div class="v">${fmt(pct(seasons, .1))}–${fmt(pct(seasons, .9))}</div><div class="hint">season level, 10th–90th percentile</div></div>`;
+  const share = outside / tot;
+  $("pwarn").innerHTML = (share > 0.15 || dT >= 2) ? `<div class="warn">A warming of +${dT.toFixed(1)} °C pushes many seasons beyond the conditions in the 1990–2023 trials (${Math.round(share * 100)}% of the temperatures are hotter than any recorded). The model is extrapolating here, so treat these results as a rough guide.</div>` : "";
+  const second = res[1];
+  let txt = `<p><strong>Most likely winner: ${top.code}</strong>, the best variety in ${Math.round(top.pbest * 100)}% of simulated seasons (next: ${second.code}, ${Math.round(second.pbest * 100)}%). Expected ${fmt(top.mean)} t/ha; in a bad year about ${fmt(top.p10)} t/ha.</p>`;
+  txt += robust.code === top.code ? `<p>It also has the best bad-year yield, so it is both the high-yield and the safe choice.</p>`
+    : `<p><strong>Safest choice: ${robust.code}</strong>, with the highest bad-year yield (${fmt(robust.p10)} t/ha). Prefer it if a poor harvest would hurt more than a missed top yield.</p>`;
+  if (top.trials < 12) txt += `<p class="hint">${top.code} has been tested in only ${top.trials} trials, so its estimate is less certain than for widely tested varieties.</p>`;
+  $("preason").innerHTML = txt;
+  const lo = Math.min(...res.map(x => x.p10), thr) - 0.3, hi = Math.max(...res.map(x => x.p90)) + 0.3, X = v => ((v - lo) / (hi - lo) * 100).toFixed(1) + "%";
+  const maxp = Math.max(...res.map(x => x.pbest));
+  $("ptable").innerHTML = `<thead><tr><th>Variety</th><th>Chance best</th><th>Expected</th><th>Bad year</th><th>Good year</th><th>Below ${thr.toFixed(2)}</th><th class="rangecell">Range</th></tr></thead><tbody>` +
+    res.slice(0, 12).map(x => `<tr><td class="vn">${x.code}</td><td><span class="chance"><span class="b" style="width:${(x.pbest / maxp * 50).toFixed(0)}px"></span>${Math.round(x.pbest * 100)}%</span></td>
+    <td>${fmt(x.mean)}</td><td>${fmt(x.p10)}</td><td>${fmt(x.p90)}</td><td>${Math.round(x.pbelow * 100)}%</td>
+    <td><div class="range"><span class="ln" style="left:${X(x.p10)};width:calc(${X(x.p90)} - ${X(x.p10)})"></span><span class="thr" style="left:${X(thr)}"></span><span class="dot" style="left:${X(x.mean)}"></span></div></td></tr>`).join("") +
+    `</tbody>`;
+}
+$("calib").innerHTML = `<thead><tr><th>Predicted chance of winning</th><th>Actual win rate</th><th>Cases</th></tr></thead><tbody>` +
+  D.calibration.map(([p, o, n]) => `<tr><td>${Math.round(p * 100)}%</td><td>${Math.round(o * 100)}%</td><td>${n}</td></tr>`).join("") + `</tbody>`;
+["warm", "prain", "thr"].forEach(id => $(id).addEventListener("input", simulate));
+$("loc").addEventListener("change", simulate);
+simulate();
 </script>
 </body>
 </html>
