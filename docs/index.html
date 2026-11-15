@@ -43,6 +43,8 @@ input[type=range] { width: 100%; }
 .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 button { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
 button:hover { border-color: var(--accent); }
+button:disabled { opacity: .6; cursor: wait; }
+input:disabled { opacity: .45; }
 button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .grid2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px; margin-top: 20px; align-items: start; }
 @media (max-width: 880px) { .grid2 { grid-template-columns: 1fr; } }
@@ -143,6 +145,9 @@ footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
     <div><label for="prain">June rainfall</label><div class="val rain"><span id="prainV"></span>% of each past June</div><input class="r-rain" type="range" id="prain" min="60" max="140" step="10" value="100"></div>
     <div><label for="thr">Minimum acceptable yield</label><div class="val"><span id="thrV"></span> t/ha</div><input type="range" id="thr" min="5" max="8" step="0.25" value="6"></div>
   </div>
+  <div class="presets" style="margin:0 0 12px"><button type="button" id="fcbtn">Use the latest ECMWF seasonal forecast</button>
+    <span class="hint" id="manualnote" hidden>Sliders are off: the forecast sets temperature and rainfall for each month.</span></div>
+  <div id="fcinfo"></div>
   <div id="pwarn"></div>
   <div class="summary" id="psum"></div>
   <div class="reason" id="preason"></div>
@@ -254,44 +259,70 @@ function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let
 function gauss(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
 const pct = (a, p) => { const s = [...a].sort((x, y) => x - y); const i = (s.length - 1) * p, lo = Math.floor(i);
   return s[lo] + (s[Math.ceil(i)] - s[lo]) * (i - lo); };
-const DRAWS = 60;
+const MONTH_KEYS = { 3: "Mar", 4: "Apr", 5: "May", 6: "Jun", 7: "Jul" };
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const FC = { lat: 47.05, lon: 7.5 };   // Swiss Plateau near Bern; the trial sites are anonymised
+let forecast = null, mode = "manual";
 
-function simulate() {
-  const loc = $("loc").value, dT = +$("warm").value, rf = +$("prain").value / 100, thr = +$("thr").value;
-  $("warmV").textContent = "+" + dT.toFixed(1); $("prainV").textContent = $("prain").value; $("thrV").textContent = thr.toFixed(2);
-  const r = rng(12345), V = D.varieties, n = V.length;
-  const ys = V.map(() => []), wins = new Array(n).fill(0), below = new Array(n).fill(0), seasons = [];
-  let outside = 0, tot = 0;
-  for (const row of D.hist[loc]) {
-    const w = {}; D.wcols.forEach((k, i) => w[k] = row[i]);
-    D.temp_cols.forEach(k => { w[k] += dT; tot++; if (w[k] > D.temp_range[k][1]) outside++; });
-    const p0 = w.PrecipSum_Jun, p = p0 * rf;
-    w.PrecipSum_Jun = p; w.Precipmean_wet_Jun *= Math.sqrt(rf);
-    w.DryDays_Jun = Math.max(0, Math.min(30, w.DryDays_Jun + D.dry.Jun[0] * (p - p0)));
-    const qhat = seasonQuality(w);
-    for (let d = 0; d < DRAWS; d++) {
-      const q = qhat + D.season_rmse * gauss(r); seasons.push(q);
-      let best = -1, bi = 0;
-      for (let j = 0; j < n; j++) {
-        const v = V[j], se = D.resid_sd / Math.sqrt(v.trials);
-        const y = q + v.effect + v.slope * (q - D.mean_quality) + Math.sqrt(D.resid_sd ** 2 + se ** 2) * gauss(r);
-        ys[j].push(y); if (y < thr) below[j]++; if (y > best) { best = y; bi = j; }
-      }
-      wins[bi]++;
+function applyShift(w, sh) {
+  for (const m of ["Mar", "Apr", "May", "Jun", "Jul"]) {
+    const dT = sh.temp[m] || 0;
+    if (dT) D.temp_cols.filter(k => k.endsWith("_" + m)).forEach(k => w[k] += dT);
+    const f = sh.rain[m] ?? 1;
+    if (f !== 1) {
+      const p0 = w["PrecipSum_" + m], p = p0 * f;
+      w["PrecipSum_" + m] = p; w["Precipmean_wet_" + m] *= Math.sqrt(f);
+      if (D.dry[m]) w["DryDays_" + m] = Math.max(0, Math.min(31, w["DryDays_" + m] + D.dry[m][0] * (p - p0)));
     }
   }
+  if (sh.winter !== 1) { w.PrecipSum_winter *= sh.winter; w.Precipmean_wet_winter *= Math.sqrt(sh.winter); }
+}
+
+function shifts() {
+  if (mode === "forecast" && forecast) return { list: forecast.members, draws: 2 };
+  const dT = +$("warm").value, temp = {};
+  ["Mar", "Apr", "May", "Jun", "Jul"].forEach(m => temp[m] = dT);
+  return { list: [{ temp, rain: { Jun: +$("prain").value / 100 }, winter: 1 }], draws: 60 };
+}
+
+function simulate() {
+  const loc = $("loc").value, thr = +$("thr").value;
+  $("warmV").textContent = "+" + (+$("warm").value).toFixed(1); $("prainV").textContent = $("prain").value; $("thrV").textContent = thr.toFixed(2);
+  const { list, draws } = shifts();
+  const r = rng(12345), V = D.varieties, n = V.length;
+  const ys = V.map(() => []), wins = new Array(n).fill(0), below = new Array(n).fill(0), seasons = [];
+  let outside = 0, tot = 0, qNormal = 0, qShift = 0, nq = 0;
+  for (const row of D.hist[loc]) {
+    const w0 = {}; D.wcols.forEach((k, i) => w0[k] = row[i]);
+    qNormal += seasonQuality(w0);
+    for (const sh of list) {
+      const w = { ...w0 }; applyShift(w, sh);
+      D.temp_cols.forEach(k => { tot++; if (w[k] > D.temp_range[k][1]) outside++; });
+      const qhat = seasonQuality(w); qShift += qhat; nq++;
+      for (let d = 0; d < draws; d++) {
+        const q = qhat + D.season_rmse * gauss(r); seasons.push(q);
+        let best = -Infinity, bi = 0;
+        for (let j = 0; j < n; j++) {
+          const v = V[j], se = D.resid_sd / Math.sqrt(v.trials);
+          const y = q + v.effect + v.slope * (q - D.mean_quality) + Math.sqrt(D.resid_sd ** 2 + se ** 2) * gauss(r);
+          ys[j].push(y); if (y < thr) below[j]++; if (y > best) { best = y; bi = j; }
+        }
+        wins[bi]++;
+      }
+    }
+  }
+  qNormal /= D.hist[loc].length; qShift /= nq;
   const N = seasons.length;
   const res = V.map((v, j) => ({ code: v.code, trials: v.trials, pbest: wins[j] / N, mean: ys[j].reduce((a, b) => a + b, 0) / N,
     p10: pct(ys[j], .1), p90: pct(ys[j], .9), pbelow: below[j] / N })).sort((a, b) => b.pbest - a.pbest || b.mean - a.mean);
-  const robust = [...res].sort((a, b) => b.p10 - a.p10)[0];
-  const top = res[0];
-  const yrs = D.hist_years[loc];
-  $("psum").innerHTML = `<div class="stat"><div class="k">Simulated seasons</div><div class="v">${N.toLocaleString("en")}</div><div class="hint">${yrs.length} past seasons (${yrs[0]}–${yrs[yrs.length - 1]}) × ${DRAWS} draws</div></div>
-    <div class="stat"><div class="k">Expected season yield level</div><div class="v">${fmt(seasons.reduce((a, b) => a + b, 0) / N)} t/ha</div></div>
+  const robust = [...res].sort((a, b) => b.p10 - a.p10)[0], top = res[0], second = res[1];
+  const yrs = D.hist_years[loc], diff = qShift - qNormal;
+  const src = mode === "forecast" && forecast ? `${yrs.length} past seasons × ${list.length} forecast members × ${draws} draws` : `${yrs.length} past seasons (${yrs[0]}–${yrs[yrs.length - 1]}) × ${draws} draws`;
+  $("psum").innerHTML = `<div class="stat"><div class="k">Simulated seasons</div><div class="v">${N.toLocaleString("en")}</div><div class="hint">${src}</div></div>
+    <div class="stat"><div class="k">Expected season yield level</div><div class="v">${fmt(seasons.reduce((a, b) => a + b, 0) / N)} t/ha</div><div class="hint">${diff >= 0 ? "+" : "−"}${fmt(Math.abs(diff))} t/ha vs a normal season</div></div>
     <div class="stat"><div class="k">Bad year to good year</div><div class="v">${fmt(pct(seasons, .1))}–${fmt(pct(seasons, .9))}</div><div class="hint">season level, 10th–90th percentile</div></div>`;
-  const share = outside / tot;
-  $("pwarn").innerHTML = (share > 0.15 || dT >= 2) ? `<div class="warn">A warming of +${dT.toFixed(1)} °C pushes many seasons beyond the conditions in the 1990–2023 trials (${Math.round(share * 100)}% of the temperatures are hotter than any recorded). The model is extrapolating here, so treat these results as a rough guide.</div>` : "";
-  const second = res[1];
+  const share = outside / tot, dTm = mode === "manual" ? +$("warm").value : 0;
+  $("pwarn").innerHTML = (share > 0.15 || dTm >= 2) ? `<div class="warn">${Math.round(share * 100)}% of the simulated temperatures are hotter than any recorded in the 1990–2023 trials. The model is extrapolating here, so treat these results as a rough guide.</div>` : "";
   let txt = `<p><strong>Most likely winner: ${top.code}</strong>, the best variety in ${Math.round(top.pbest * 100)}% of simulated seasons (next: ${second.code}, ${Math.round(second.pbest * 100)}%). Expected ${fmt(top.mean)} t/ha; in a bad year about ${fmt(top.p10)} t/ha.</p>`;
   txt += robust.code === top.code ? `<p>It also has the best bad-year yield, so it is both the high-yield and the safe choice.</p>`
     : `<p><strong>Safest choice: ${robust.code}</strong>, with the highest bad-year yield (${fmt(robust.p10)} t/ha). Prefer it if a poor harvest would hurt more than a missed top yield.</p>`;
@@ -305,6 +336,78 @@ function simulate() {
     <td><div class="range"><span class="ln" style="left:${X(x.p10)};width:calc(${X(x.p90)} - ${X(x.p10)})"></span><span class="thr" style="left:${X(thr)}"></span><span class="dot" style="left:${X(x.mean)}"></span></div></td></tr>`).join("") +
     `</tbody>`;
 }
+
+// ---------- ECMWF SEAS5 seasonal forecast (via Open-Meteo) ----------
+// Each of the 51 ensemble members becomes one possible season. Member anomaly =
+// official monthly anomaly (forecast minus the model's own hindcast climate) + the member's
+// deviation from the ensemble mean. Rainfall is applied as a ratio to the model climate.
+function parseForecast(mon, day) {
+  const today = new Date(), harvest = today.getMonth() >= 7 ? today.getFullYear() + 1 : today.getFullYear();
+  const memberKeys = (base) => Object.keys(day.daily).filter(k => k === base || k.startsWith(base + "_member"));
+  const tK = memberKeys("temperature_2m_mean"), pK = memberKeys("precipitation_sum");
+  const M = tK.length;
+  const byMonth = {};
+  day.daily.time.forEach((t, i) => {
+    const key = t.slice(0, 7);
+    if (!byMonth[key]) byMonth[key] = { t: new Array(M).fill(0), p: new Array(M).fill(0), n: 0 };
+    const b = byMonth[key]; b.n++;
+    tK.forEach((k, j) => b.t[j] += day.daily[k][i] ?? 0);
+    pK.forEach((k, j) => b.p[j] += day.daily[pK[j]][i] ?? 0);
+  });
+  const members = Array.from({ length: M }, () => ({ temp: {}, rain: {}, winter: 1 }));
+  const rows = [], winterF = new Array(M).fill(0); let winterN = 0;
+  mon.monthly.time.forEach((t, i) => {
+    const key = t.slice(0, 7), y = +t.slice(0, 4), mo = +t.slice(5, 7), b = byMonth[key];
+    const anomT = mon.monthly.temperature_2m_anomaly[i], anomP = mon.monthly.precipitation_anomaly[i];
+    const clim = mon.monthly.precipitation_mean[i] - anomP;
+    if (!b || anomT == null || anomP == null || !(clim > 1)) return;
+    const tMean = b.t.map(x => x / b.n), tAvg = tMean.reduce((a, c) => a + c, 0) / M;
+    const pAvg = b.p.reduce((a, c) => a + c, 0) / M;
+    const dT = tMean.map(x => anomT + (x - tAvg));
+    const f = b.p.map(x => Math.max(0.3, Math.min(3, (clim + anomP) / clim * (pAvg > 0 ? x / pAvg : 1))));
+    const inSpring = y === harvest && MONTH_KEYS[mo], inWinter = (y === harvest - 1 && mo >= 10) || (y === harvest && mo <= 2);
+    if (inSpring) members.forEach((m, j) => { m.temp[MONTH_KEYS[mo]] = dT[j]; m.rain[MONTH_KEYS[mo]] = f[j]; });
+    if (inWinter) { winterN++; f.forEach((v, j) => winterF[j] += v); }
+    if (inSpring || inWinter) rows.push({ label: MONTH_NAMES[mo - 1] + " " + y, dT, f, use: inSpring ? "spring" : "winter" });
+  });
+  // winter = Oct–Feb; months outside the forecast count as normal
+  members.forEach((m, j) => m.winter = winterN ? (winterF[j] + (5 - winterN)) / 5 : 1);
+  const missing = ["Mar", "Apr", "May", "Jun", "Jul"].filter(k => !(k in members[0].temp)).map(k => MONTH_NAMES[Object.keys(MONTH_KEYS).find(x => MONTH_KEYS[x] === k) - 1]);
+  return { members, rows, harvest, missing, run: mon.monthly.time[0] };
+}
+
+async function loadForecast() {
+  const btn = $("fcbtn"); btn.disabled = true; $("fcinfo").innerHTML = `<p class="small">Loading the latest ECMWF seasonal forecast…</p>`;
+  try {
+    const base = `https://seasonal-api.open-meteo.com/v1/seasonal?latitude=${FC.lat}&longitude=${FC.lon}&models=ecmwf_seas5&forecast_days=215`;
+    const [mon, day] = await Promise.all([
+      fetch(base + "&monthly=temperature_2m_anomaly,precipitation_anomaly,precipitation_mean").then(r => r.json()),
+      fetch(base + "&daily=temperature_2m_mean,precipitation_sum").then(r => r.json())]);
+    if (mon.error || day.error) throw new Error(mon.reason || day.reason);
+    forecast = parseForecast(mon, day);
+    if (!forecast.rows.length) throw new Error("the forecast does not reach the coming wheat season yet");
+    mode = "forecast"; showForecast(); simulate();
+  } catch (e) {
+    $("fcinfo").innerHTML = `<div class="warn">Could not load the forecast (${e.message}). The manual scenario is still available.</div>`;
+  }
+  btn.disabled = false;
+}
+
+function showForecast() {
+  const f = forecast, med = a => pct(a, .5);
+  const tbl = `<table style="max-width:640px"><thead><tr><th>Month</th><th>Temperature vs normal</th><th>Rainfall vs normal</th></tr></thead><tbody>` +
+    f.rows.map(r => `<tr><td>${r.label}${r.use === "winter" ? " (winter rain)" : ""}</td>
+      <td>${r.use === "spring" ? `${med(r.dT) >= 0 ? "+" : "−"}${Math.abs(med(r.dT)).toFixed(1)} °C <span class="hint">(${pct(r.dT, .1).toFixed(1)} to ${pct(r.dT, .9).toFixed(1)})</span>` : "–"}</td>
+      <td>${Math.round(med(r.f) * 100)}% <span class="hint">(${Math.round(pct(r.f, .1) * 100)}–${Math.round(pct(r.f, .9) * 100)}%)</span></td></tr>`).join("") + `</tbody></table>`;
+  const miss = f.missing.length ? `<p class="small"><strong>${f.missing.join(", ")} ${f.harvest}</strong> ${f.missing.length > 1 ? "are" : "is"} beyond the 7-month forecast, so normal weather is assumed there. These months matter (June weather has the strongest effect), so check again after the next monthly update on the 5th.</p>` : "";
+  $("fcinfo").innerHTML = `<p class="small" style="margin-top:0">ECMWF SEAS5 forecast issued for ${f.run.slice(0, 7)}, ${f.members.length} ensemble members, for the Swiss Plateau near Bern (the trial sites are anonymised, so one central point is used). Median and 10th–90th percentile range across members:</p>${tbl}${miss}
+    <p class="small">Seasonal forecasts for Central Europe have limited skill beyond the first month or two, so the members spread widely and the app keeps all of them as possible outcomes.</p>
+    <button type="button" id="fcoff">Back to manual scenario</button>`;
+  $("fcoff").addEventListener("click", () => { mode = "manual"; $("fcinfo").innerHTML = ""; setManual(true); simulate(); });
+  setManual(false);
+}
+function setManual(on) { ["warm", "prain"].forEach(id => $(id).disabled = !on); $("manualnote").hidden = on; }
+$("fcbtn").addEventListener("click", loadForecast);
 $("calib").innerHTML = `<thead><tr><th>Predicted chance of winning</th><th>Actual win rate</th><th>Cases</th></tr></thead><tbody>` +
   D.calibration.map(([p, o, n]) => `<tr><td>${Math.round(p * 100)}%</td><td>${Math.round(o * 100)}%</td><td>${n}</td></tr>`).join("") + `</tbody>`;
 ["warm", "prain", "thr"].forEach(id => $(id).addEventListener("input", simulate));

@@ -75,6 +75,16 @@ For each variety it reports the chance of being the best, the expected yield, a 
 
 In the model, +1 °C across March–July lowers the season yield level by about 0.3 t/ha (mainly through warmer June and July nights). Rankings hardly change with warming, because the varieties respond similarly to season quality. The model is linear and learned from 1990–2023, so it cannot capture sudden heat-stress damage beyond that range; the app warns when the warming goes far outside it.
 
+### Using the live seasonal forecast
+
+The button **"Use the latest ECMWF seasonal forecast"** replaces the sliders with the official ECMWF SEAS5 forecast, loaded live from the [Open-Meteo Seasonal API](https://open-meteo.com/en/docs/seasonal-forecast-api) (updated monthly on the 5th, 51 ensemble members, 7 months ahead). Each ensemble member becomes one possible season:
+
+- **Temperature** for March–July = ECMWF's monthly anomaly (forecast minus the model's own hindcast climate) plus that member's deviation from the ensemble mean.
+- **Rainfall** for March–July and winter (October–February) = the forecast as a ratio to the model's climate, again per member.
+- Every member is combined with every past season at the site, giving about 3,400 simulated seasons.
+
+Months beyond the 7-month range are treated as normal, and the app says which ones. In November, for example, June and July are not covered yet. The trial sites are anonymised, so the forecast is taken for one central point on the Swiss Plateau (near Bern). Seasonal forecasts for Central Europe have limited skill, which is why the app keeps all 51 members instead of only the average.
+
 ## Run it
 
 ```bash
