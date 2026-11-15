@@ -1,0 +1,15 @@
+gen_name,hot_dry_pred_t_ha,cool_wet_pred_t_ha,rank_hot_dry,rank_cool_wet
+Trebi,1.87,2.17,1,2
+WisconsinBarbless,1.71,2.44,2,1
+ManSA4667,1.68,1.91,3,6
+SAxMan,1.66,1.95,4,5
+Odessa,1.62,2.09,5,3
+Glabron,1.54,1.87,6,9
+No474,1.52,1.89,7,7
+Velvet,1.51,1.88,8,8
+Svansota,1.5,1.81,9,13
+LionManchuria,1.48,1.85,10,10
+Manchuria,1.45,1.84,11,11
+Peatland,1.45,1.99,12,4
+Colsess,1.43,1.83,13,12
+Oderbrucker,1.29,1.6,14,14

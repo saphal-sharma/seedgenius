@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.Rhistory
+.ipynb_checkpoints/
+.DS_Store
+.pytest_cache/

@@ -1,0 +1,5 @@
+model,rmse_t_ha,r2,top_variety_hit_rate_pct,mean_yield_lost_vs_best_t_ha,mean_rank_correlation_within_trial,trials_evaluated
+A_variety_mean,0.748,-0.028,29.825,0.278,0.357,57
+B_variety_plus_site,0.733,0.011,29.825,0.278,0.348,57
+C_gbm_weather,0.727,0.027,38.596,0.249,0.447,57
+Random pick (reference),,,9.833,,,57

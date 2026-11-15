@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SeedGenius Variety Selector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Trial-plot field book: barley-gold for the recommended pick, slate ink, rain-blue and heat-red for the season controls */
+  --bg: #f6f5ef;
+  --panel: #ffffff;
+  --ink: #23262b;
+  --muted: #646a72;
+  --line: #dedbd0;
+  --accent: #b07d12;
+  --accent-soft: #f6ecd2;
+  --rain: #3a6ea5;
+  --heat: #b8473a;
+  --bar: #c9c3b3;
+  --font-display: "Source Serif 4", Georgia, serif;
+  --font-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Layout: controls on top as a band, ranked varieties below, method notes at the end */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a; --panel: #1d2024; --ink: #e8e6df; --muted: #a2a7ad; --line: #30343a;
+    --accent: #e0aa3e; --accent-soft: #3a3020; --rain: #7fb0e3; --heat: #e98a7d; --bar: #4a4e55; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a; --panel: #1d2024; --ink: #e8e6df; --muted: #a2a7ad; --line: #30343a;
+  --accent: #e0aa3e; --accent-soft: #3a3020; --rain: #7fb0e3; --heat: #e98a7d; --bar: #4a4e55; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+header { padding: 28px 0 8px; }
+h1 { font-family: var(--font-display); font-size: 32px; margin: 0 0 4px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 70ch; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 10px; }
+.controls { display: grid; grid-template-columns: 1fr 1.3fr 1.3fr; gap: 20px; margin-top: 18px; }
+@media (max-width: 760px) { .controls { grid-template-columns: 1fr; } }
+label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 4px; }
+select { width: 100%; font: inherit; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.val { font-family: var(--font-mono); font-size: 22px; font-variant-numeric: tabular-nums; }
+.val.rain { color: var(--rain); } .val.heat { color: var(--heat); }
+.hint { font-size: 13px; color: var(--muted); }
+input[type=range] { width: 100%; }
+#precip { accent-color: var(--rain); } #dt { accent-color: var(--heat); }
+.presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+button { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.warn { margin-top: 10px; font-size: 14px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--heat); color: var(--heat); display: none; }
+.grid2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; margin-top: 20px; align-items: start; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+.pick { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; padding: 12px 14px; background: var(--accent-soft); border-radius: 8px; margin-bottom: 14px; }
+.pick .name { font-family: var(--font-display); font-size: 24px; font-weight: 600; }
+.pick .num { font-family: var(--font-mono); }
+.rows { display: grid; gap: 6px; }
+.row { display: grid; grid-template-columns: 26px 150px 1fr 64px 46px; gap: 8px; align-items: center; font-size: 14px; }
+@media (max-width: 480px) { .row { grid-template-columns: 22px 110px 1fr 56px; } .row .delta { display: none; } }
+.row .rank { font-family: var(--font-mono); color: var(--muted); text-align: right; }
+.row .track { height: 14px; background: var(--bg); border-radius: 3px; position: relative; }
+.row .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--bar); }
+.row.top3 .fill { background: var(--accent); }
+.row.top3 .vname { font-weight: 600; }
+.row .num { font-family: var(--font-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.row .delta { font-family: var(--font-mono); font-size: 12px; text-align: right; color: var(--muted); }
+.row .delta.up { color: var(--rain); } .row .delta.down { color: var(--heat); }
+.legendline { font-size: 13px; color: var(--muted); margin-top: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 6px 6px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+tr.best td { font-weight: 600; }
+.tablewrap { overflow-x: auto; }
+.stack { display: grid; gap: 20px; }
+p.small { font-size: 14px; color: var(--muted); margin: 8px 0 0; max-width: 70ch; }
+footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: no-preference) { .row .fill { transition: width .25s ease; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>SeedGenius Variety Selector</h1>
+  <p>Choose a trial site and the kind of season you expect. The model ranks 14 barley varieties by predicted yield, learned from Minnesota variety trials and weather records from 1927 to 1936.</p>
+</header>
+
+<section class="panel" aria-label="Season settings">
+  <div class="controls">
+    <div>
+      <label for="site">Trial site</label>
+      <select id="site"></select>
+      <div class="hint" id="siteinfo"></div>
+    </div>
+    <div>
+      <label for="precip">April–July rainfall</label>
+      <div class="val rain"><span id="precipVal"></span> mm</div>
+      <input type="range" id="precip">
+      <div class="hint">Spread over the months as in a typical year at this site</div>
+    </div>
+    <div>
+      <label for="dt">Temperature vs a typical season</label>
+      <div class="val heat"><span id="dtVal"></span> °C</div>
+      <input type="range" id="dt">
+      <div class="hint">Shifts daily highs and lows from April to July</div>
+    </div>
+  </div>
+  <div class="presets" role="group" aria-label="Season presets">
+    <button type="button" data-p="dry-hot">Hot and dry</button>
+    <button type="button" data-p="typical">Typical season</button>
+    <button type="button" data-p="cool-wet">Cool and wet</button>
+  </div>
+  <div class="warn" id="warn">This rainfall is outside what this site saw in the trial years, so treat the ranking with extra caution.</div>
+</section>
+
+<div class="grid2">
+  <section class="panel" aria-live="polite">
+    <h2>Predicted ranking</h2>
+    <div class="pick" id="pick"></div>
+    <div class="rows" id="rows"></div>
+    <div class="legendline">Bars show predicted yield in t/ha. The small number shows the change versus a typical season at this site.</div>
+  </section>
+
+  <aside class="stack">
+    <section class="panel">
+      <h2>How good are the picks?</h2>
+      <div class="tablewrap"><table id="metrics"></table></div>
+      <p class="small">Each season was predicted by a model trained only on the other nine years. Using weather picks the best variety more often than choosing the variety with the best average yield. Predicting the overall yield level of a new season remains hard (R² close to 0), so read the ranking, not the exact tonnes.</p>
+    </section>
+    <section class="panel">
+      <h2>What the model looks at</h2>
+      <div class="tablewrap"><table id="shap"></table></div>
+      <p class="small">Mean absolute SHAP value: the average change in predicted yield (t/ha) caused by each input. Weather accounts for about three quarters of the model's explanation, variety for 17% and site for 8%.</p>
+    </section>
+  </aside>
+</div>
+
+<footer>Data: Minnesota barley trials and NOAA monthly weather, from the R package agridat (Wright 2013, <i>The American Statistician</i> 67: 129–133). Model: gradient boosting on variety, site and 14 weather variables. Historical varieties: this is a method demonstration, not advice for today's farms. Built by Saphal Sharma.</footer>
+</div>
+
+<script>
+const D = __DATA__;
+const $ = id => document.getElementById(id);
+const nice = s => s.replace(/([a-z])([A-Z])/g, "$1 $2").replace("Grand Rapids", "Grand Rapids").replace("St Paul", "St. Paul");
+const fmt = (x, d = 2) => x.toFixed(d);
+const pIdx = () => +$("precip").value, tIdx = () => +$("dt").value;
+
+D.sites.forEach(s => { const o = document.createElement("option"); o.value = s; o.textContent = nice(s); $("site").appendChild(o); });
+$("precip").min = 0; $("precip").max = D.precip.length - 1; $("precip").step = 1;
+$("dt").min = 0; $("dt").max = D.dt.length - 1; $("dt").step = 1;
+
+function nearest(arr, v) { let b = 0; arr.forEach((x, i) => { if (Math.abs(x - v) < Math.abs(arr[b] - v)) b = i; }); return b; }
+function setTypical() {
+  const o = D.observed[$("site").value];
+  $("precip").value = nearest(D.precip, o.precip_median);
+  $("dt").value = nearest(D.dt, 0);
+}
+function preset(p) {
+  const o = D.observed[$("site").value];
+  if (p === "typical") setTypical();
+  if (p === "dry-hot") { $("precip").value = nearest(D.precip, o.precip_min); $("dt").value = nearest(D.dt, 1.5); }
+  if (p === "cool-wet") { $("precip").value = nearest(D.precip, o.precip_max); $("dt").value = nearest(D.dt, -1.5); }
+  update();
+}
+
+function update() {
+  const site = $("site").value, o = D.observed[site];
+  const P = D.precip[pIdx()], T = D.dt[tIdx()];
+  $("precipVal").textContent = P.toFixed(0);
+  $("dtVal").textContent = (T > 0 ? "+" : T < 0 ? "−" : "±") + Math.abs(T).toFixed(1);
+  $("siteinfo").textContent = `${o.n_years} trial years; rainfall ${o.precip_min}–${o.precip_max} mm; typical May–July high ${o.tmax_median} °C`;
+  $("warn").style.display = (P < o.precip_min - 10 || P > o.precip_max + 10) ? "block" : "none";
+
+  const now = D.pred[site][pIdx()][tIdx()];
+  const typ = D.pred[site][nearest(D.precip, o.precip_median)][nearest(D.dt, 0)];
+  const order = D.varieties.map((v, i) => ({v, y: now[i], d: now[i] - typ[i], avg: D.variety_mean[i]})).sort((a, b) => b.y - a.y);
+  const max = Math.max(...order.map(r => r.y)) * 1.05;
+  const best = order[0];
+  const avgPick = D.varieties.map((v, i) => ({v, m: D.variety_mean[i], y: now[i]})).sort((a, b) => b.m - a.m)[0];
+  $("pick").innerHTML = `<span>Best pick</span><span class="name">${nice(best.v)}</span><span class="num">${fmt(best.y)} t/ha</span>` +
+    (avgPick.v !== best.v ? `<span class="hint">The best-on-average variety, ${nice(avgPick.v)}, is predicted at ${fmt(avgPick.y)} t/ha here.</span>` :
+      `<span class="hint">Also the best variety on average across all trials.</span>`);
+  $("rows").innerHTML = order.map((r, i) => {
+    const cls = r.d > 0.02 ? "up" : r.d < -0.02 ? "down" : "";
+    return `<div class="row ${i < 3 ? "top3" : ""}"><span class="rank">${i + 1}</span><span class="vname">${nice(r.v)}</span>
+      <span class="track"><span class="fill" style="width:${(r.y / max * 100).toFixed(1)}%"></span></span>
+      <span class="num">${fmt(r.y)}</span><span class="delta ${cls}">${r.d >= 0 ? "+" : "−"}${fmt(Math.abs(r.d))}</span></div>`;
+  }).join("");
+}
+
+const names = {A_variety_mean: "Best average variety", B_variety_plus_site: "Variety + site", C_gbm_weather: "SeedGenius (weather model)", "Random pick (reference)": "Random pick"};
+const ms = D.metrics;
+$("metrics").innerHTML = `<thead><tr><th>Method</th><th>Picks best</th><th>Yield lost</th></tr></thead><tbody>` +
+  ms.map(m => `<tr class="${m.model === "C_gbm_weather" ? "best" : ""}"><td>${names[m.model] || m.model}</td><td>${(+m.top_variety_hit_rate_pct).toFixed(0)}%</td><td>${m.mean_yield_lost_vs_best_t_ha === "" ? "–" : (+m.mean_yield_lost_vs_best_t_ha).toFixed(2) + " t/ha"}</td></tr>`).join("") + `</tbody>`;
+const label = f => f.replace("tmin_c_", "Min. temperature, ").replace("tmax_c_", "Max. temperature, ").replace("precip_mm_", "Rainfall, ")
+  .replace("season_precip_mm", "Season rainfall").replace("season_tmax_c", "Season max. temperature").replace("site=", "Site: ").replace("variety=", "Variety: ")
+  .replace(/, (apr|may|jun|jul)$/, (m, x) => ", " + {apr: "April", may: "May", jun: "June", jul: "July"}[x]);
+$("shap").innerHTML = `<thead><tr><th>Input</th><th>t/ha</th></tr></thead><tbody>` +
+  D.shap.map(s => `<tr><td>${label(s[Object.keys(s)[0]])}</td><td>${(+s.mean_abs_shap_t_ha).toFixed(3)}</td></tr>`).join("") + `</tbody>`;
+
+$("site").addEventListener("change", () => { setTypical(); update(); });
+$("precip").addEventListener("input", update);
+$("dt").addEventListener("input", update);
+document.querySelectorAll("[data-p]").forEach(b => b.addEventListener("click", () => preset(b.dataset.p)));
+$("site").value = D.sites.includes("Waseca") ? "Waseca" : D.sites[0];
+setTypical(); update();
+</script>
+</body>
+</html>
