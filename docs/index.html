@@ -86,6 +86,8 @@ p.small { font-size: 14px; color: var(--muted); margin: 8px 0 0; max-width: 70ch
 .range .dot { position: absolute; top: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); margin-left: -5px; }
 .range .thr { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--heat); }
 .tablewrap { overflow-x: auto; }
+.grid2 > *, .stack > * { min-width: 0; }
+@media (max-width: 520px) { .ptable { font-size: 13px; } .rangecell, .ptable td:last-child { display: none; } th, td { padding: 5px 4px; } h1 { font-size: 26px; } }
 footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
 @media (prefers-reduced-motion: no-preference) { .row .fill { transition: width .25s ease; } }
 </style>
@@ -126,12 +128,12 @@ footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
   <aside class="stack">
     <section class="panel">
       <h2>How good are the picks?</h2>
-      <table id="metrics"></table>
+      <div class="tablewrap"><table id="metrics"></table></div>
       <p class="small">Each season from 1990 to 2023 was predicted by models trained only on the other 33 seasons. Estimating variety merit with a proper two-way model picks the best variety far more often than raw averages or a machine-learning model with weather. Adding weather did not improve the choice itself, so the ranking mostly reflects genetics, while weather sets how good the season will be.</p>
     </section>
     <section class="panel">
       <h2>What makes a good season?</h2>
-      <table id="weff"></table>
+      <div class="tablewrap"><table id="weff"></table></div>
       <p class="small" id="seasonfit"></p>
     </section>
   </aside>
@@ -143,7 +145,7 @@ footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
   <div class="prob-controls">
     <div><label for="warm">Warming, March–July</label><div class="val heat"><span id="warmV"></span> °C</div><input class="r-heat" type="range" id="warm" min="0" max="3" step="0.5" value="1"></div>
     <div><label for="prain">June rainfall</label><div class="val rain"><span id="prainV"></span>% of each past June</div><input class="r-rain" type="range" id="prain" min="60" max="140" step="10" value="100"></div>
-    <div><label for="thr">Minimum acceptable yield</label><div class="val"><span id="thrV"></span> t/ha</div><input type="range" id="thr" min="5" max="8" step="0.25" value="6"></div>
+    <div><label for="thr">Minimum acceptable yield</label><div class="val"><span id="thrV"></span> t/ha</div><input type="range" style="accent-color:var(--accent)" id="thr" min="5" max="8" step="0.25" value="6"></div>
   </div>
   <div class="presets" style="margin:0 0 12px"><button type="button" id="fcbtn">Use the latest ECMWF seasonal forecast</button>
     <span class="hint" id="manualnote" hidden>Sliders are off: the forecast sets temperature and rainfall for each month.</span></div>
@@ -154,7 +156,7 @@ footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
   <div class="tablewrap"><table class="ptable" id="ptable"></table></div>
   <p class="small">Bad year = the worst 10% of simulated seasons; good year = the best 10%. Dot = expected yield; the dashed red line is your minimum acceptable yield.</p>
   <h2 style="margin-top:18px">Can these chances be trusted?</h2>
-  <table id="calib" style="max-width:520px"></table>
+  <div class="tablewrap"><table id="calib" style="max-width:520px"></table></div>
   <p class="small">Tested on 34 seasons the model had not seen: when it gave a variety a certain chance of winning a trial, the variety won about that often. Above 70% it is slightly overconfident (based on only 23 cases). The warming itself is an assumption, and the weather model is linear, so it cannot capture sudden heat-stress damage above the temperatures seen in 1990–2023.</p>
 </section>
 
@@ -167,9 +169,9 @@ footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
   <div class="tablewrap"><table id="grel"></table></div>
   <p class="small">Similarity = share of DNA markers with the same genotype. Two random varieties in this set share about <span id="gmed"></span>. Yield merit = the variety's advantage over the average trial variety (t/ha), from the field trials.</p>
   <h2 style="margin-top:18px">Can DNA predict yield before field testing?</h2>
-  <table id="gcv" style="max-width:620px"></table>
+  <div class="tablewrap"><table id="gcv" style="max-width:620px"></table></div>
   <p class="small">Correlation (r) between predicted and actual yield merit for varieties left out of the model, 20 repeats of 5-fold cross-validation. Newer varieties tend to yield more (breeding progress), so the year a variety entered the trials is itself a good predictor. DNA markers add clear information on top of that, but they cannot predict how a variety reacts to the weather.</p>
-  <table id="gfwd" style="max-width:720px;margin-top:12px"></table>
+  <div class="tablewrap"><table id="gfwd" style="max-width:720px;margin-top:12px"></table></div>
   <p class="small">The realistic test: the model only knows varieties up to a given year and must rank the ones that came later. "Top quarter found" = how many of the truly best quarter of new varieties were in the predicted best quarter (25% by chance).</p>
 </section>
 
