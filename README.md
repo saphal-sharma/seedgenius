@@ -139,4 +139,4 @@ python src/export_app.py      # rebuilds docs/index.html
 
 [`minnesota-demo/`](minnesota-demo/) holds the first version on historical Minnesota barley trials (1927–1936), with a SHAP-explained gradient-boosting model. Its app is at [saphal-sharma.github.io/seedgenius/minnesota](https://saphal-sharma.github.io/seedgenius/minnesota/).
 
-**Author:** Saphal Sharma, M.Sc. Sustainable International Agriculture, University of Göttingen
+**Author:** Saphal Sharma, M.Sc. student, Sustainable International Agriculture, University of Göttingen
