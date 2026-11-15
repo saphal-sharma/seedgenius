@@ -1,5 +1,7 @@
 # SeedGenius Europe: Choosing Winter Wheat Varieties for the Next Season
 
+[![Tests](https://github.com/saphal-sharma/seedgenius/actions/workflows/tests.yml/badge.svg)](https://github.com/saphal-sharma/seedgenius/actions/workflows/tests.yml)
+
 **▶ Live app: [saphal-sharma.github.io/seedgenius](https://saphal-sharma.github.io/seedgenius/)**: pick a Swiss trial site and a season scenario, and see the expected season yield and the variety ranking.
 
 > **Question:** Which winter wheat variety should be grown next season, and does the weather forecast change that choice?  
@@ -124,6 +126,12 @@ The same Agroscope record includes **12,106 SNP markers** for all 98 varieties (
 - **The app** shows, for any variety, its five closest relatives (share of identical markers), their yields, which are still in recent trials, and how its field result compares with its DNA prediction.
 
 ![Genetic map](results/genomic_pca.png)
+
+## How I checked this
+
+- Every model is validated on seasons it has never seen (leave-one-year-out, 34 seasons), and DNA predictions on varieties left out of the model.
+- Win probabilities are checked for calibration against how often varieties actually won.
+- Automated tests check that the variety model recovers known effects on simulated trials, that the real data load completely, that the published results reproduce, and that the browser app computes exactly the same predictions as Python.
 
 ## Run it
 
