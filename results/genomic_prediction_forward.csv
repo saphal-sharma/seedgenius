@@ -1,0 +1,5 @@
+trained_on_entries_up_to,training_varieties,new_varieties,r_year_only,r_year_plus_markers,top_quarter_found_year_only_pct,top_quarter_found_with_markers_pct
+2005,31,67,0.486,0.643,35.0,35.0
+2008,39,59,0.465,0.642,40.0,40.0
+2011,52,46,0.282,0.603,42.0,50.0
+2014,58,40,0.242,0.606,30.0,50.0

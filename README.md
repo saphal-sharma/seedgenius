@@ -12,6 +12,8 @@ Agroscope winter wheat trials under low-input management (no fungicides, insecti
 - **42 weather variables** per trial: monthly temperature (mean, min, max), rainfall, rain per wet day, dry days and solar radiation for March–July, plus winter rainfall.
 - Varieties and sites are anonymised (V1–V98, L1–L16) in the public release.
 
+SNP marker data come from the same record (`data/SNP_v1.0.0.csv`).
+
 Source: Levy Häner L., Strebel S., Visse-Mansiaux M., Wuyts N., Herrera J.M., Pellet D. (2025). *Winter wheat performance data for varieties grown under low input conditions in Switzerland over the period 1990–2023.* Agroscope. Zenodo, [doi:10.5281/zenodo.16420898](https://doi.org/10.5281/zenodo.16420898). Licence CC BY 4.0. The files are in [`data/`](data/) unchanged.
 
 ## Method
@@ -85,12 +87,44 @@ The button **"Use the latest ECMWF seasonal forecast"** replaces the sliders wit
 
 Months beyond the 7-month range are treated as normal, and the app says which ones. In November, for example, June and July are not covered yet. The trial sites are anonymised, so the forecast is taken for one central point on the Swiss Plateau (near Bern). Seasonal forecasts for Central Europe have limited skill, which is why the app keeps all 51 members instead of only the average.
 
+## DNA: relatives and genomic prediction
+
+The same Agroscope record includes **12,106 SNP markers** for all 98 varieties ([`src/genomics.py`](src/genomics.py)). After removing rare markers (minor allele frequency below 5%), 10,212 remain. Markers are coded 0/1/2. Predictions use ridge regression on all markers (equivalent to GBLUP), always validated on varieties the model has not seen.
+
+**Table 2.** Predicting a variety's yield merit (20 × 5-fold cross-validation across varieties)
+
+| Prediction | r |
+|---|---|
+| Year of entry only (breeding-progress trend) | 0.69 |
+| **Year of entry + DNA markers** | **0.82** |
+| DNA markers, merit beyond the year trend | 0.62 |
+| DNA markers, weather sensitivity | 0.15 |
+
+**Table 3.** The realistic test: the model knows only varieties that entered the trials up to a year and ranks the ones that came later
+
+| Model knows up to | New varieties | r, year only | r, year + DNA | Best quarter found, year only | with DNA |
+|---|---|---|---|---|---|
+| 2005 | 67 | 0.49 | 0.64 | 35% | 35% |
+| 2008 | 59 | 0.47 | 0.64 | 40% | 40% |
+| 2011 | 46 | 0.28 | 0.60 | 42% | 50% |
+| 2014 | 40 | 0.24 | 0.61 | 30% | 50% |
+
+![DNA prediction vs field](results/genomic_vs_field.png)
+
+- **DNA predicts yield potential before field testing.** Markers add clear information beyond breeding progress (r = 0.62 among varieties of the same era). For new varieties after 2011, the year + DNA model found half of the best quarter, against 30–42% with the year trend alone (25% by chance).
+- **DNA does not predict weather sensitivity** (r = 0.15). How a variety reacts to good and bad seasons has to be measured in the field.
+- **Sanity check:** V14 and V70 have identical marker profiles and almost the same field merit (−0.03 and −0.14 t/ha), which suggests the same or a reselected variety under two codes.
+- **The app** shows, for any variety, its five closest relatives (share of identical markers), their yields, which are still in recent trials, and how its field result compares with its DNA prediction.
+
+![Genetic map](results/genomic_pca.png)
+
 ## Run it
 
 ```bash
 pip install -r requirements.txt
 python src/seedgenius_eu.py   # analysis, tables and charts in results/
 python src/calibration.py     # checks the win probabilities
+python src/genomics.py        # DNA markers: relatives and genomic prediction
 python src/export_app.py      # rebuilds docs/index.html
 ```
 

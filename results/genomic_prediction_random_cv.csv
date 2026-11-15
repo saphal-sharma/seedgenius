@@ -1,0 +1,5 @@
+prediction,r,sd
+Year of entry only (breeding-progress trend),0.687,0.007
+Year of entry + DNA markers,0.818,0.011
+"DNA markers, merit beyond the year trend",0.616,0.034
+"DNA markers, weather sensitivity (slope)",0.146,0.053

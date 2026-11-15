@@ -85,6 +85,20 @@ def main():
         "season": {"r2": round(float(season["r2_trial_mean_yield"]), 3), "mae": round(float(season["mae_t_ha"]), 2)},
         "weather_effects": [[k, round(float(v), 3)] for k, v in weff.items()],
     }
+    # DNA: genomic estimates and closest relatives (from src/genomics.py)
+    ge = pd.read_csv(ROOT / "results" / "genomic_estimates.csv", index_col=0)
+    ibs = pd.read_csv(ROOT / "results" / "genetic_similarity_ibs.csv", index_col=0)
+    gen = []
+    for v in sorted(ge.index, key=lambda c: int(c[1:])):
+        sim = ibs.loc[v].drop(v).nlargest(5)
+        gen.append({"code": v, "field": float(ge.loc[v, "field_estimate_t_ha"]),
+                    "dna": float(ge.loc[v, "genomic_estimate_untested_t_ha"]), "trials": int(ge.loc[v, "trials"]),
+                    "first": int(ge.loc[v, "first_year"]), "last": int(ge.loc[v, "last_year"]),
+                    "rel": [[k, round(float(x), 3)] for k, x in sim.items()]})
+    data["genomics"] = {"varieties": gen, "median_similarity": round(float(np.median(
+        ibs.values[np.triu_indices(len(ibs), 1)])), 3),
+        "cv": pd.read_csv(ROOT / "results" / "genomic_prediction_random_cv.csv").values.tolist(),
+        "forward": pd.read_csv(ROOT / "results" / "genomic_prediction_forward.csv").values.tolist()}
     tpl = (ROOT / "src" / "app_template.html").read_text()
     out = ROOT / "docs" / "index.html"
     out.write_text(tpl.replace("__DATA__", json.dumps(data, separators=(",", ":"))))

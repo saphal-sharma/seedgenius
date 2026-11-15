@@ -158,6 +158,21 @@ footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
   <p class="small">Tested on 34 seasons the model had not seen: when it gave a variety a certain chance of winning a trial, the variety won about that often. Above 70% it is slightly overconfident (based on only 23 cases). The warming itself is an assumption, and the weather model is linear, so it cannot capture sudden heat-stress damage above the temperatures seen in 1990–2023.</p>
 </section>
 
+<section class="panel" style="margin-top:20px" aria-labelledby="dnah">
+  <h2 id="dnah">DNA: relatives and genetic potential</h2>
+  <p class="small" style="margin:0 0 12px">Every variety was genotyped with 12,106 DNA markers (SNPs). Pick a variety to see its closest genetic relatives and what its DNA predicts, compared with its field results.</p>
+  <div class="prob-controls" style="grid-template-columns:minmax(200px,320px)"><div><label for="gvar">Variety</label><select id="gvar"></select></div></div>
+  <div class="summary" id="gsum"></div>
+  <div class="reason" id="greason"></div>
+  <div class="tablewrap"><table id="grel"></table></div>
+  <p class="small">Similarity = share of DNA markers with the same genotype. Two random varieties in this set share about <span id="gmed"></span>. Yield merit = the variety's advantage over the average trial variety (t/ha), from the field trials.</p>
+  <h2 style="margin-top:18px">Can DNA predict yield before field testing?</h2>
+  <table id="gcv" style="max-width:620px"></table>
+  <p class="small">Correlation (r) between predicted and actual yield merit for varieties left out of the model, 20 repeats of 5-fold cross-validation. Newer varieties tend to yield more (breeding progress), so the year a variety entered the trials is itself a good predictor. DNA markers add clear information on top of that, but they cannot predict how a variety reacts to the weather.</p>
+  <table id="gfwd" style="max-width:720px;margin-top:12px"></table>
+  <p class="small">The realistic test: the model only knows varieties up to a given year and must rank the ones that came later. "Top quarter found" = how many of the truly best quarter of new varieties were in the predicted best quarter (25% by chance).</p>
+</section>
+
 <footer>Data: Levy Häner L., Strebel S., Visse-Mansiaux M., Wuyts N., Herrera J.M., Pellet D. (2025). Winter wheat performance data for varieties grown under low input conditions in Switzerland over the period 1990–2023. Agroscope, Zenodo, doi:10.5281/zenodo.16420898 (CC BY 4.0). Analysis and app by Saphal Sharma. A method demonstration, not official variety advice.</footer>
 </div>
 
@@ -414,6 +429,36 @@ $("calib").innerHTML = `<thead><tr><th>Predicted chance of winning</th><th>Actua
 ["warm", "prain", "thr"].forEach(id => $(id).addEventListener("input", simulate));
 $("loc").addEventListener("change", simulate);
 simulate();
+
+// ---------- DNA ----------
+const GN = D.genomics, GV = Object.fromEntries(GN.varieties.map(v => [v.code, v]));
+const recentSet = new Set(D.varieties.map(v => v.code));
+GN.varieties.forEach(v => { const o = document.createElement("option"); o.value = v.code;
+  o.textContent = `${v.code} (tested ${v.first}–${v.last})`; $("gvar").appendChild(o); });
+$("gvar").value = "V43";
+$("gmed").textContent = Math.round(GN.median_similarity * 100) + "%";
+const sgn = x => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(2);
+function showDNA() {
+  const v = GV[$("gvar").value];
+  $("gsum").innerHTML = `<div class="stat"><div class="k">Yield merit in the field</div><div class="v">${sgn(v.field)} t/ha</div><div class="hint">${v.trials} trials, ${v.first}–${v.last}</div></div>
+    <div class="stat"><div class="k">Predicted from DNA alone</div><div class="v">${sgn(v.dna)} t/ha</div><div class="hint">model trained without this variety</div></div>
+    <div class="stat"><div class="k">Closest relative</div><div class="v">${v.rel[0][0]}</div><div class="hint">${Math.round(v.rel[0][1] * 100)}% of markers identical</div></div>`;
+  const gap = v.field - v.dna;
+  let t = Math.abs(gap) < 0.4 ? `<p>The DNA prediction (${sgn(v.dna)} t/ha) is close to the field result (${sgn(v.field)} t/ha): ${v.code} performs as its genetics suggest.</p>`
+    : gap > 0 ? `<p>${v.code} does <strong>better in the field than its DNA predicts</strong> (${sgn(v.field)} vs ${sgn(v.dna)} t/ha). It may carry favourable genes that the markers do not capture, or it was tested in only a few seasons (${v.trials} trials).</p>`
+    : `<p>${v.code} does <strong>worse in the field than its DNA predicts</strong> (${sgn(v.field)} vs ${sgn(v.dna)} t/ha). Its genetic background looks promising, so related lines may be worth watching.</p>`;
+  const rel = v.rel.map(([c]) => GV[c]), better = rel.filter(r => r.field > v.field && recentSet.has(r.code));
+  if (better.length) t += `<p>Relatives still in recent trials that yield more: <strong>${better.map(r => r.code).join(", ")}</strong>. A grower who likes ${v.code} could try these as similar but higher-yielding alternatives.</p>`;
+  $("greason").innerHTML = t;
+  $("grel").innerHTML = `<thead><tr><th>Relative</th><th>Similarity</th><th>Yield merit</th><th>Tested</th><th>Recent</th></tr></thead><tbody>` +
+    v.rel.map(([c, sim]) => { const r = GV[c]; return `<tr><td class="vn">${c}</td><td>${Math.round(sim * 100)}%</td><td>${sgn(r.field)} t/ha</td><td>${r.first}–${r.last}</td><td>${recentSet.has(c) ? "yes" : "–"}</td></tr>`; }).join("") + `</tbody>`;
+}
+$("gcv").innerHTML = `<thead><tr><th>Prediction</th><th>r</th></tr></thead><tbody>` +
+  GN.cv.map(([n, r]) => `<tr><td>${n}</td><td>${r.toFixed(2)}</td></tr>`).join("") + `</tbody>`;
+$("gfwd").innerHTML = `<thead><tr><th>Model knows varieties up to</th><th>New varieties</th><th>r, year only</th><th>r, year + DNA</th><th>Top quarter found, year only</th><th>…with DNA</th></tr></thead><tbody>` +
+  GN.forward.map(f => `<tr><td>${f[0]}</td><td>${f[2]}</td><td>${f[3].toFixed(2)}</td><td>${f[4].toFixed(2)}</td><td>${Math.round(f[5])}%</td><td>${Math.round(f[6])}%</td></tr>`).join("") + `</tbody>`;
+$("gvar").addEventListener("change", showDNA);
+showDNA();
 </script>
 </body>
 </html>
