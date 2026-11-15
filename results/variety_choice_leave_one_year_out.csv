@@ -1,0 +1,5 @@
+model,picks_best_variety_pct,yield_lost_vs_best_t_ha,rank_correlation_within_trial,random_pick_pct,trials
+A_raw_variety_mean,45.017,0.367,0.573,9.767,291
+B_two_way_variety_effect,54.296,0.247,0.658,9.767,291
+C_gbm_weather,31.959,0.502,0.51,9.767,291
+D_variety_effect_plus_weather_response,54.296,0.247,0.657,9.767,291

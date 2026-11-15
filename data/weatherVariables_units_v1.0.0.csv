@@ -1,0 +1,16 @@
+variables;explanation;source;units;data_included_as
+Tabs;daily mean of free-air temperature 2 m above ground level;raster data;°C;mean over defined period
+Tmin;daily minimum of free-air temperature 2 m above ground level;raster data;°C;mean over defined period
+Tmax;daily maximum of free-air temperature 2 m above ground level;raster data;°C;mean over defined period
+PrecipSum;daily amount of precipitation;raster data;mm;sum over defined period
+SolRadday;daily solar radiation;weather station data;MJ m-2 d-1;mean over defined period
+DryDays;number of dry days (total amount of precipitation < 1 mm day-1);raster data;NA;number over defined period
+Precipmean_wet;daily amount of precipitation on wet days (total amount of precipitation > 1 mm day-1);raster data;mm;mean over defined period
+;;;;
+period;months;;;
+winter;October, November, December, January, February;;;
+Mar;March;;;
+Apr;April;;;
+May;May;;;
+Jun;June;;;
+Jul;July;;;
