@@ -212,8 +212,9 @@ function update() {
   const q = seasonQuality(w);
   const base = seasonQuality(D.base[$("loc").value]);
   const dev = q - D.mean_quality;
-  const cls = dev > 0.4 ? "good" : dev < -0.4 ? "bad" : "avg";
-  const word = dev > 0.4 ? "Better than average" : dev < -0.4 ? "Worse than average" : "About average";
+  const dsite = q - base;   // compare with a normal season at this site
+  const cls = dsite > 0.3 ? "good" : dsite < -0.3 ? "bad" : "avg";
+  const word = dsite > 0.3 ? "Better than normal here" : dsite < -0.3 ? "Worse than normal here" : "Normal for this site";
   $("season").innerHTML = `<span>Expected season yield level</span><span class="big">${fmt(q)} t/ha</span>
     <span class="pill ${cls}">${word}</span><span class="hint">${q - base >= 0 ? "+" : "−"}${fmt(Math.abs(q - base))} t/ha vs a normal season at this site</span>`;
 
