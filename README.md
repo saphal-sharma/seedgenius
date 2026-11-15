@@ -2,6 +2,13 @@
 
 **▶ Live app: [saphal-sharma.github.io/seedgenius](https://saphal-sharma.github.io/seedgenius/)**: pick a Swiss trial site and a season scenario, and see the expected season yield and the variety ranking.
 
+> **Question:** Which winter wheat variety should be grown next season, and does the weather forecast change that choice?  
+> **Answer:** A two-way variety model picks the best variety in 54% of unseen seasons (raw averages 45%, machine learning + weather 32%, random 10%). Weather sets the season's yield level; DNA markers plus entry year predict a variety's yield merit with r = 0.82.  
+> **Method:** 34 years of Agroscope trials (303 trials, 98 varieties), leave-one-year-out validation, ridge weather model, calibrated Monte Carlo with the live ECMWF seasonal forecast, genomic prediction on 10,212 SNPs.
+
+<img src="docs/preview.jpg" alt="SeedGenius app" width="720">
+
+
 SeedGenius uses 34 years of official Swiss variety trials to answer a practical seed-industry question: **which variety should be grown next season, and how much does weather change that choice?** Every method is tested on seasons it has never seen, using decision metrics (how often it picks the winning variety) rather than only yield error.
 
 ## Data
