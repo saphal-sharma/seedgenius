@@ -8,7 +8,7 @@
 > **Answer:** A two-way variety model picks the best variety in 54% of unseen seasons (raw averages 45%, machine learning + weather 32%, random 10%). Weather sets the season's yield level; DNA markers plus entry year predict a variety's yield merit with r = 0.82.  
 > **Method:** 34 years of Agroscope trials (303 trials, 98 varieties), leave-one-year-out validation, ridge weather model, calibrated Monte Carlo with the live ECMWF seasonal forecast, genomic prediction on 10,212 SNPs.
 
-<img src="docs/preview.jpg" alt="SeedGenius app" width="720">
+<img src="docs/demo.gif" alt="Animated demo of the SeedGenius app: season presets, warming scenarios, variety mix and DNA relatives" width="720">
 
 
 SeedGenius uses 34 years of official Swiss variety trials to answer a practical seed-industry question: **which variety should be grown next season, and how much does weather change that choice?** Every method is tested on seasons it has never seen, using decision metrics (how often it picks the winning variety) rather than only yield error.
@@ -96,6 +96,21 @@ The button **"Use the latest ECMWF seasonal forecast"** replaces the sliders wit
 
 Months beyond the 7-month range are treated as normal, and the app says which ones. In November, for example, June and July are not covered yet. The trial sites are anonymised, so the forecast is taken for one central point on the Swiss Plateau (near Bern). Seasonal forecasts for Central Europe have limited skill, which is why the app keeps all 51 members instead of only the average.
 
+## One variety, or a mix?
+
+Farmers and advisers often split their area across 2–3 varieties to spread risk. [`src/variety_mix.py`](src/variety_mix.py) tests this on 291 trials the model had not seen: in each held-out season, the area goes to the best-ranked variety or is split equally across the top 2, 3 or 4, and is scored on what those varieties actually yielded.
+
+| Strategy | Yield above an average variety | Trials ending below an average variety |
+|---|---|---|
+| Best-ranked variety only | +0.92 t/ha | 5.2% |
+| Equal mix of top 2 | +0.72 t/ha | 4.5% |
+| Equal mix of top 3 | +0.60 t/ha | 2.7% |
+| Equal mix of top 4 | +0.48 t/ha | 2.1% |
+
+![One variety or a mix](results/variety_mix_comparison.png)
+
+Rankings are stable from season to season, so a mix mainly works as insurance: a mix of three costs about 0.3 t/ha a year and roughly halves the chance of a below-average result. The app shows the recommended mix and its cost for the chosen site and scenario.
+
 ## DNA: relatives and genomic prediction
 
 The same Agroscope record includes **12,106 SNP markers** for all 98 varieties ([`src/genomics.py`](src/genomics.py)). After removing rare markers (minor allele frequency below 5%), 10,212 remain. Markers are coded 0/1/2. Predictions use ridge regression on all markers (equivalent to GBLUP), always validated on varieties the model has not seen.
@@ -140,6 +155,7 @@ pip install -r requirements.txt
 python src/seedgenius_eu.py   # analysis, tables and charts in results/
 python src/calibration.py     # checks the win probabilities
 python src/genomics.py        # DNA markers: relatives and genomic prediction
+python src/variety_mix.py     # one variety or a mix
 python src/export_app.py      # rebuilds docs/index.html
 ```
 

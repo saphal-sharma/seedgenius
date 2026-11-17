@@ -99,6 +99,8 @@ def main():
         ibs.values[np.triu_indices(len(ibs), 1)])), 3),
         "cv": pd.read_csv(ROOT / "results" / "genomic_prediction_random_cv.csv").values.tolist(),
         "forward": pd.read_csv(ROOT / "results" / "genomic_prediction_forward.csv").values.tolist()}
+    data["mix"] = pd.read_csv(ROOT / "results" / "variety_mix_leave_one_year_out.csv")[
+        ["varieties", "avg_gain_over_average_variety_t_ha", "trials_below_average_variety_pct", "trials"]].values.tolist()
     tpl = (ROOT / "src" / "app_template.html").read_text()
     out = ROOT / "docs" / "index.html"
     out.write_text(tpl.replace("__DATA__", json.dumps(data, separators=(",", ":"))))

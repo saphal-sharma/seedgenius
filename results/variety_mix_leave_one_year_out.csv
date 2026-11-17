@@ -1,0 +1,5 @@
+strategy,varieties,avg_gain_over_average_variety_t_ha,worst_1_in_20_gain_t_ha,trials_below_average_variety_pct,avg_shortfall_vs_trial_best_t_ha,beats_top1_pct,trials
+Best-ranked variety only,1,0.917,0.012,5.155,0.247,,291
+Equal mix of top 2,2,0.721,0.048,4.467,0.443,26.117,291
+Equal mix of top 3,3,0.603,0.071,2.749,0.561,21.306,291
+Equal mix of top 4,4,0.479,0.006,2.062,0.685,16.495,291

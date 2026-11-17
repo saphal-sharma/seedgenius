@@ -110,3 +110,11 @@ def test_web_app_lists_recent_varieties_only():
     assert len(D["varieties"]) >= 20
     assert all(v["last"] >= 2021 and v["trials"] >= 9 for v in D["varieties"])
     assert len(D["genomics"]["varieties"]) == 98
+
+
+def test_variety_mix_trade_off():
+    """A mix should cost average yield but lower the chance of a below-average result."""
+    m = pd.read_csv(ROOT / "results" / "variety_mix_leave_one_year_out.csv").set_index("varieties")
+    assert m.loc[1, "avg_gain_over_average_variety_t_ha"] > m.loc[3, "avg_gain_over_average_variety_t_ha"]
+    assert m.loc[3, "trials_below_average_variety_pct"] < m.loc[1, "trials_below_average_variety_pct"]
+    assert (m["trials"] == m["trials"].iloc[0]).all()

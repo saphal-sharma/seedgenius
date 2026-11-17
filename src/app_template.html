@@ -155,6 +155,10 @@ footer { padding: 24px 0 36px; color: var(--muted); font-size: 13px; }
   <div class="reason" id="preason"></div>
   <div class="tablewrap"><table class="ptable" id="ptable"></table></div>
   <p class="small">Bad year = the worst 10% of simulated seasons; good year = the best 10%. Dot = expected yield; the dashed red line is your minimum acceptable yield.</p>
+  <h2 style="margin-top:22px">One variety, or a mix?</h2>
+  <div class="reason" id="mixreason"></div>
+  <div class="tablewrap"><table id="mixtable" style="max-width:640px"></table></div>
+  <p class="small">Tested on <span id="mixn"></span> trials the model had not seen: in each, the area was put on the best-ranked variety, or split equally across the top 2, 3 or 4, and scored on what those varieties actually yielded. Rankings were stable from season to season, so a mix mostly works as insurance: it lowers the chance of a poor result, at a clear cost in average yield.</p>
   <h2 style="margin-top:18px">Can these chances be trusted?</h2>
   <div class="tablewrap"><table id="calib" style="max-width:520px"></table></div>
   <p class="small">Tested on 34 seasons the model had not seen: when it gave a variety a certain chance of winning a trial, the variety won about that often. Above 70% it is slightly overconfident (based on only 23 cases). The warming itself is an assumption, and the weather model is linear, so it cannot capture sudden heat-stress damage above the temperatures seen in 1990–2023.</p>
@@ -353,6 +357,15 @@ function simulate() {
     <td>${fmt(x.mean)}</td><td>${fmt(x.p10)}</td><td>${fmt(x.p90)}</td><td>${Math.round(x.pbelow * 100)}%</td>
     <td><div class="range"><span class="ln" style="left:${X(x.p10)};width:calc(${X(x.p90)} - ${X(x.p10)})"></span><span class="thr" style="left:${X(thr)}"></span><span class="dot" style="left:${X(x.mean)}"></span></div></td></tr>`).join("") +
     `</tbody>`;
+  // one variety or a mix: expected yield of the mix under this scenario, risk from the validated test
+  const k3 = res.slice().sort((a, b) => b.mean - a.mean);
+  const mixMean = n => k3.slice(0, n).reduce((t, x) => t + x.mean, 0) / n;
+  const M = Object.fromEntries(D.mix.map(r => [r[0], r]));
+  $("mixn").textContent = D.mix[0][3];
+  $("mixreason").innerHTML = `<p><strong>Single variety:</strong> ${k3[0].code}, expected ${fmt(mixMean(1))} t/ha. <strong>Mix of three:</strong> ${k3.slice(0, 3).map(x => x.code).join(" + ")}, expected ${fmt(mixMean(3))} t/ha (${fmt(mixMean(1) - mixMean(3))} t/ha less).</p>
+    <p>In the test on unseen seasons, the mix of three ended below an average variety in ${M[3][2].toFixed(1)}% of trials instead of ${M[1][2].toFixed(1)}%. A mix makes sense when one poor harvest would hurt more than a slightly smaller yield every year.</p>`;
+  $("mixtable").innerHTML = `<thead><tr><th>Strategy</th><th>Above an average variety</th><th>Ended below average</th></tr></thead><tbody>` +
+    D.mix.map(r => `<tr><td>${r[0] === 1 ? "Best-ranked variety only" : "Equal mix of top " + r[0]}</td><td>+${r[1].toFixed(2)} t/ha</td><td>${r[2].toFixed(1)}% of trials</td></tr>`).join("") + `</tbody>`;
 }
 
 // ---------- ECMWF SEAS5 seasonal forecast (via Open-Meteo) ----------
